@@ -11,26 +11,28 @@
     <style>
         :root {
             --bg-dark: #1e1e1e;
+            --viewer-bg: #0077b6; /* Colore richiesto */
             --accent: #ffb74d; 
             --shelf-color: #5d4037;
+            --ui-bg: rgba(0, 0, 0, 0.8);
         }
 
         body {
             margin: 0;
             background-color: var(--bg-dark);
             color: #fff;
-            font-family: 'Helvetica Neue', sans-serif;
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
             overflow-x: hidden;
             -webkit-user-select: none;
-            -moz-user-select: none;
             user-select: none;
         }
 
+        /* --- Header & Libreria --- */
         header {
             padding: 20px;
             text-align: center;
             border-bottom: 1px solid #333;
-            background: rgba(0,0,0,0.2);
+            background: #111;
         }
 
         h1 { margin: 0; font-weight: 300; letter-spacing: 2px; color: var(--accent); }
@@ -47,7 +49,7 @@
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
-            gap: 40px; /* Spazio aumentato tra i libri */
+            gap: 40px;
             width: 100%;
             max-width: 1200px;
             padding-bottom: 15px;
@@ -56,7 +58,6 @@
             margin-bottom: 30px;
         }
 
-        /* Container del singolo elemento (Libro + Titolo + Tasto) */
         .book-wrapper {
             display: flex;
             flex-direction: column;
@@ -73,9 +74,7 @@
             margin-bottom: 10px;
         }
 
-        .book-item:hover {
-            transform: translateY(-10px);
-        }
+        .book-item:hover { transform: translateY(-10px); }
 
         .book-cover {
             width: 100%;
@@ -90,108 +89,137 @@
             font-size: 0.9rem;
             text-align: center;
             color: #ccc;
-            opacity: 0.9;
             margin-bottom: 8px;
-            line-height: 1.2;
         }
 
-        /* Tasto Condividi */
         .share-btn {
-            background-color: transparent;
-            border: 1px solid #444;
+            background: transparent;
+            border: 1px solid #555;
             color: var(--accent);
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 0.75rem;
             cursor: pointer;
             display: flex;
-            align-items: center;
             gap: 5px;
-            transition: all 0.2s;
+            transition: 0.2s;
         }
-
-        .share-btn:hover {
-            background-color: var(--accent);
-            color: #000;
-            border-color: var(--accent);
-        }
-
+        .share-btn:hover { background: var(--accent); color: #000; }
         .share-btn svg { width: 12px; height: 12px; fill: currentColor; }
 
-        /* --- Viewer Fullscreen --- */
+        /* --- Viewer Fullscreen (Modificato) --- */
         #viewer {
             display: none;
             position: fixed;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
-            background: #111;
+            background-color: var(--viewer-bg); /* Sfondo #0077b6 */
             z-index: 2000;
+            overflow: auto; /* Permette scroll se zoom è alto */
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
 
-        .close-ui {
-            position: absolute;
-            top: 20px; right: 20px;
-            font-size: 2rem;
-            cursor: pointer;
-            z-index: 2001;
-            color: #fff;
-            background: rgba(0,0,0,0.5);
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 40px;
+        /* Container che viene scalato dallo zoom */
+        #zoom-wrapper {
+            transition: transform 0.3s ease-out;
+            transform-origin: center center;
+            padding: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        .flip-book { display: none; }
+        .flip-book { display: none; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
         
-        .page {
-            background-color: #fff;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
-        }
+        .page { background-color: #fff; }
         
         canvas { display: block; width: 100%; height: 100%; }
 
-        .loader {
-            border: 4px solid #333;
-            border-top: 4px solid var(--accent);
-            border-radius: 50%;
+        /* --- Barra di Controllo (Bottom Bar) --- */
+        .controls-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--ui-bg);
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 3000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        .ctrl-btn {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
             width: 40px; height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: 0.2s;
+        }
+
+        .ctrl-btn:hover { background: var(--accent); border-color: var(--accent); color: #000; }
+        
+        .page-info { font-size: 0.9rem; color: #ddd; min-width: 80px; text-align: center; }
+
+        /* Pulsante Chiudi in alto a destra */
+        .close-top {
+            position: fixed;
+            top: 20px; right: 20px;
+            width: 50px; height: 50px;
+            background: var(--ui-bg);
+            color: #fff;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 50px;
+            font-size: 2rem;
+            cursor: pointer;
+            z-index: 3001;
+            transition: 0.2s;
+        }
+        .close-top:hover { background: #d32f2f; }
+
+        /* Loader */
+        .loader {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 50px; height: 50px;
             animation: spin 1s linear infinite;
+            position: absolute;
+            top: 50%; left: 50%;
+            margin-left: -25px; margin-top: -25px;
         }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Toast Notification (Messaggio "Link Copiato") */
+        /* Toast */
         #toast {
             visibility: hidden;
-            min-width: 250px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 2px;
-            padding: 16px;
-            position: fixed;
-            z-index: 3000;
-            left: 50%;
-            bottom: 30px;
+            min-width: 250px; background-color: #333; color: #fff;
+            text-align: center; border-radius: 2px; padding: 16px;
+            position: fixed; z-index: 4000; left: 50%; bottom: 100px;
             transform: translateX(-50%);
-            font-size: 17px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 100px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 100px; opacity: 1;} to {bottom: 0; opacity: 0;} }
 
+        /* Security Watermark */
         .security-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 9999;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><text x="50" y="150" fill="rgba(255,255,255,0.03)" font-size="30" transform="rotate(-45 150 150)">SchoolAnnuary - Protected</text></svg>');
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9999;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><text x="50" y="150" fill="rgba(255,255,255,0.05)" font-size="30" transform="rotate(-45 150 150)">SchoolAnnuary - No Copy</text></svg>');
         }
     </style>
 </head>
@@ -206,88 +234,73 @@
     <div class="library" id="library-container"></div>
 
     <div id="viewer">
-        <div class="close-ui" onclick="closeViewer()">×</div>
+        <div class="close-top" onclick="closeViewer()">×</div>
         <div class="loader" id="loader"></div>
-        <div id="flipbook-container"></div>
+        
+        <div id="zoom-wrapper">
+            <div id="flipbook-container"></div>
+        </div>
+
+        <div class="controls-bar" id="controls-bar" style="display:none;">
+            <button class="ctrl-btn" onclick="zoomOut()" title="Zoom Out">－</button>
+            <button class="ctrl-btn" onclick="zoomIn()" title="Zoom In">＋</button>
+            <div style="width:1px; height:20px; background:#555; margin:0 5px;"></div>
+            <button class="ctrl-btn" onclick="prevPage()" title="Pagina Precedente">❮</button>
+            <span class="page-info" id="page-counter">0 / 0</span>
+            <button class="ctrl-btn" onclick="nextPage()" title="Pagina Successiva">❯</button>
+        </div>
     </div>
 
-    <div id="toast">Link copiato negli appunti!</div>
+    <div id="toast">Link copiato!</div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // ==========================================
-        // CONFIGURAZIONE LIBRI
-        // ==========================================
+        // === CONFIGURAZIONE ===
         const bookList = [
-            { filename: 'annuario scolastico2025.pdf', name: 'Annuario 2025' },
-           
+            { filename: 'demo.pdf', name: 'Annuario 2023' },
+            { filename: 'classe_5b.pdf', name: 'Classe 5B' }
         ];
-        
         const PDF_FOLDER = './PDF/';
 
-        // --- 1. Inizializzazione ---
-        const libraryContainer = document.getElementById('library-container');
-        const shelf = document.createElement('div');
-        shelf.className = 'shelf-row';
-        libraryContainer.appendChild(shelf);
+        // Variabili Stato
+        let flipbookInstance = null;
+        let currentZoom = 1.0;
+        let totalPages = 0;
 
-        // Controllo Parametri URL (Deep Linking)
+        // === INIZIO ===
         window.addEventListener('DOMContentLoaded', () => {
             renderLibrary();
             checkUrlForBook();
         });
 
-        function checkUrlForBook() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const bookParam = urlParams.get('book'); // Cerca ?book=nomefile.pdf
-            
-            if (bookParam) {
-                // Verifica se il libro esiste nella lista per sicurezza
-                const validBook = bookList.find(b => b.filename === bookParam);
-                if (validBook) {
-                    loadBook(bookParam);
-                } else {
-                    console.log("Libro richiesto non trovato nell'indice.");
-                    // Opzionale: rimuovi il parametro URL sporco
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                }
-            }
-        }
+        // 1. Render Libreria
+        const shelf = document.createElement('div');
+        shelf.className = 'shelf-row';
+        document.getElementById('library-container').appendChild(shelf);
 
         function renderLibrary() {
             bookList.forEach(book => {
-                // Wrapper verticale
                 const wrapper = document.createElement('div');
                 wrapper.className = 'book-wrapper';
 
-                // Libro (Cover)
                 const item = document.createElement('div');
                 item.className = 'book-item';
-                item.onclick = () => loadBook(book.filename); // Click sulla cover apre
+                item.onclick = () => loadBook(book.filename);
 
                 const canvas = document.createElement('canvas');
                 canvas.className = 'book-cover';
                 item.appendChild(canvas);
                 
-                // Titolo
                 const label = document.createElement('div');
                 label.className = 'book-title';
                 label.innerText = book.name;
 
-                // Tasto Condividi
                 const shareBtn = document.createElement('button');
                 shareBtn.className = 'share-btn';
-                shareBtn.innerHTML = `
-                    <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
-                    Condividi`;
-                
-                shareBtn.onclick = (e) => {
-                    e.stopPropagation(); // Evita che il click apra anche il libro
-                    shareBookUrl(book.filename, book.name);
-                };
+                shareBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg> Condividi`;
+                shareBtn.onclick = (e) => { e.stopPropagation(); shareBookUrl(book.filename, book.name); };
 
-                // Assemblaggio
                 wrapper.appendChild(item);
                 wrapper.appendChild(label);
                 wrapper.appendChild(shareBtn);
@@ -303,73 +316,46 @@
                 const page = await doc.getPage(1);
                 const viewport = page.getViewport({ scale: 0.5 });
                 const ctx = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
+                canvas.width = viewport.width; canvas.height = viewport.height;
                 await page.render({ canvasContext: ctx, viewport }).promise;
-            } catch (err) {
-                console.error(`Errore anteprima ${filename}:`, err);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // --- Logica Condivisione ---
-        async function shareBookUrl(filename, bookName) {
-            // Costruisce l'URL completo: sito.com/?book=nomefile.pdf
-            const url = `${window.location.origin}${window.location.pathname}?book=${encodeURIComponent(filename)}`;
-            
-            // Usa l'API nativa di condivisione se disponibile (Mobile)
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'SchoolAnnuary',
-                        text: `Guarda l'annuario: ${bookName}`,
-                        url: url
-                    });
-                } catch (err) {
-                    console.log('Condivisione annullata');
-                }
-            } else {
-                // Fallback Desktop: Copia negli appunti
-                try {
-                    await navigator.clipboard.writeText(url);
-                    showToast();
-                } catch (err) {
-                    alert('Copia questo link: ' + url);
-                }
-            }
-        }
-
-        function showToast() {
-            const toast = document.getElementById("toast");
-            toast.className = "show";
-            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
-        }
-
-        // --- 2. Logica Lettore ---
-        let flipbookInstance = null;
-
+        // 2. Caricamento e Lettore
         async function loadBook(filename) {
             const viewer = document.getElementById('viewer');
             const container = document.getElementById('flipbook-container');
             const loader = document.getElementById('loader');
-
+            const controls = document.getElementById('controls-bar');
+            
+            // Reset UI
             viewer.style.display = 'flex';
             loader.style.display = 'block';
+            controls.style.display = 'none';
             container.innerHTML = ''; 
+            currentZoom = 1.0;
+            updateZoomTransform();
 
             if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
 
             try {
                 const doc = await pdfjsLib.getDocument(PDF_FOLDER + filename).promise;
+                totalPages = doc.numPages;
+
                 const bookElem = document.createElement('div');
                 bookElem.className = 'flip-book'; 
                 container.appendChild(bookElem);
 
+                // Render Pagine (Scale aumentato a 2.0 per permettere zoom nitido)
                 for (let i = 1; i <= doc.numPages; i++) {
                     const page = await doc.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.2 });
+                    // Importante: Scale 2.0 per alta qualità quando si zooma
+                    const viewport = page.getViewport({ scale: 2.0 });
                     
                     const pageDiv = document.createElement('div');
                     pageDiv.className = 'page';
+                    // Numero di pagina (opzionale, per debug)
+                    // pageDiv.innerHTML = `<span style="position:absolute; bottom:5px; right:5px; color:#999; font-size:10px;">${i}</span>`;
                     
                     const canvas = document.createElement('canvas');
                     canvas.width = viewport.width;
@@ -384,24 +370,83 @@
 
                 loader.style.display = 'none';
                 bookElem.style.display = 'block';
+                controls.style.display = 'flex';
 
+                // Configurazione St.PageFlip per doppia pagina
                 flipbookInstance = new St.PageFlip(bookElem, {
-                    width: 500, height: 700,
-                    size: 'stretch',
+                    width: 600, // Larghezza pagina singola base
+                    height: 850, // Altezza base
+                    size: 'stretch', // Adatta al contenitore (ma il contenitore viene zoomato)
                     minWidth: 300, maxWidth: 1000,
-                    minHeight: 400, maxHeight: 1400,
+                    minHeight: 400, maxHeight: 1600,
                     maxShadowOpacity: 0.5,
-                    showCover: true,
-                    mobileScrollSupport: false 
+                    showCover: true, // La prima pagina è singola (copertina)
+                    mobileScrollSupport: false,
+                    usePortrait: false // Forza landscape se possibile (doppia pagina)
                 });
 
                 flipbookInstance.loadFromHTML(document.querySelectorAll('.page'));
 
+                // Aggiorna contatore pagine al cambio
+                flipbookInstance.on('flip', (e) => {
+                    updatePageCounter(e.data + 1); // e.data è l'indice (0-based)
+                });
+                
+                updatePageCounter(1); // Start
+
             } catch (err) {
                 console.error(err);
-                alert("Errore nel caricamento.");
+                alert("Errore caricamento libro.");
                 closeViewer();
             }
+        }
+
+        // 3. Funzioni Controlli
+        function prevPage() { if(flipbookInstance) flipbookInstance.flipPrev(); }
+        function nextPage() { if(flipbookInstance) flipbookInstance.flipNext(); }
+
+        function zoomIn() {
+            if (currentZoom < 2.5) {
+                currentZoom += 0.25;
+                updateZoomTransform();
+            }
+        }
+
+        function zoomOut() {
+            if (currentZoom > 0.5) {
+                currentZoom -= 0.25;
+                updateZoomTransform();
+            }
+        }
+
+        function updateZoomTransform() {
+            const wrapper = document.getElementById('zoom-wrapper');
+            // Scala il wrapper. Se diventa grande, il #viewer (che ha overflow:auto) permetterà lo scroll
+            wrapper.style.transform = `scale(${currentZoom})`;
+            
+            // Gestione margini per permettere lo scroll quando zoomato
+            if(currentZoom > 1) {
+                wrapper.style.margin = "50px"; 
+            } else {
+                wrapper.style.margin = "0";
+            }
+        }
+
+        function updatePageCounter(current) {
+            // Se siamo in modalità 2 pagine, mostra es: "2-3 / 50"
+            // PageFlip gestisce l'indice. La logica è semplificata qui:
+            let text = "";
+            // St.PageFlip orientation check (se è portrait o landscape)
+            const orientation = flipbookInstance.getOrientation();
+            
+            if (current === 1 || current === totalPages) {
+                text = `${current} / ${totalPages}`;
+            } else {
+                // Tentativo di mostrare la coppia di pagine
+                // Nota: La logica esatta dipende da come PageFlip indicizza le pagine interne
+                text = `${current} / ${totalPages}`; 
+            }
+            document.getElementById('page-counter').innerText = text;
         }
 
         function closeViewer() {
@@ -411,22 +456,39 @@
                 flipbookInstance = null;
             }
             if (document.exitFullscreen) document.exitFullscreen();
-            
-            // Pulisce l'URL quando si chiude il viewer per tornare "home"
             const cleanUrl = window.location.pathname;
             window.history.pushState({}, document.title, cleanUrl);
         }
 
-        // --- 3. Protezione ---
+        // 4. Utility Condivisione & URL
+        function checkUrlForBook() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookParam = urlParams.get('book');
+            if (bookParam && bookList.find(b => b.filename === bookParam)) {
+                loadBook(bookParam);
+            }
+        }
+
+        async function shareBookUrl(filename, name) {
+            const url = `${window.location.origin}${window.location.pathname}?book=${encodeURIComponent(filename)}`;
+            if (navigator.share) {
+                try { await navigator.share({ title: 'SchoolAnnuary', text: name, url: url }); } catch(e){}
+            } else {
+                try { await navigator.clipboard.writeText(url); showToast(); } catch(e){ alert(url); }
+            }
+        }
+
+        function showToast() {
+            const t = document.getElementById("toast");
+            t.className = "show";
+            setTimeout(() => t.className = t.className.replace("show", ""), 3000);
+        }
+
+        // Protezione
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('keydown', e => {
-            if ((e.ctrlKey && ['p','s','u'].includes(e.key)) || e.key === 'PrintScreen') {
-                e.preventDefault();
-            }
+            if ((e.ctrlKey && ['p','s','u'].includes(e.key)) || e.key === 'PrintScreen') e.preventDefault();
         });
-        window.addEventListener('blur', () => document.body.style.filter = 'blur(10px)');
-        window.addEventListener('focus', () => document.body.style.filter = 'none');
-
     </script>
 </body>
 </html>
