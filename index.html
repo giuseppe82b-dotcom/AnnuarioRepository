@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SchoolAnnuary</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --accent: #ffb74d; 
+            --shelf-color: #5d4037;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Helvetica Neue', sans-serif;
+            overflow-x: hidden;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            background: rgba(0,0,0,0.2);
+        }
+
+        h1 { margin: 0; font-weight: 300; letter-spacing: 2px; color: var(--accent); }
+
+        .library {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 40px 20px;
+            gap: 40px;
+        }
+
+        .shelf-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 40px; /* Spazio aumentato tra i libri */
+            width: 100%;
+            max-width: 1200px;
+            padding-bottom: 15px;
+            border-bottom: 15px solid var(--shelf-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+        }
+
+        /* Container del singolo elemento (Libro + Titolo + Tasto) */
+        .book-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 160px;
+        }
+
+        .book-item {
+            width: 160px;
+            height: 230px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .book-item:hover {
+            transform: translateY(-10px);
+        }
+
+        .book-cover {
+            width: 100%;
+            height: 100%;
+            box-shadow: -5px 5px 15px rgba(0,0,0,0.5);
+            border-radius: 2px 4px 4px 2px;
+            background: #333;
+            object-fit: cover;
+        }
+
+        .book-title {
+            font-size: 0.9rem;
+            text-align: center;
+            color: #ccc;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        /* Tasto Condividi */
+        .share-btn {
+            background-color: transparent;
+            border: 1px solid #444;
+            color: var(--accent);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+
+        .share-btn:hover {
+            background-color: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .share-btn svg { width: 12px; height: 12px; fill: currentColor; }
+
+        /* --- Viewer Fullscreen --- */
+        #viewer {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #111;
+            z-index: 2000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-ui {
+            position: absolute;
+            top: 20px; right: 20px;
+            font-size: 2rem;
+            cursor: pointer;
+            z-index: 2001;
+            color: #fff;
+            background: rgba(0,0,0,0.5);
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+        }
+
+        .flip-book { display: none; }
+        
+        .page {
+            background-color: #fff;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        canvas { display: block; width: 100%; height: 100%; }
+
+        .loader {
+            border: 4px solid #333;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Toast Notification (Messaggio "Link Copiato") */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 2px;
+            padding: 16px;
+            position: fixed;
+            z-index: 3000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 17px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+        .security-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><text x="50" y="150" fill="rgba(255,255,255,0.03)" font-size="30" transform="rotate(-45 150 150)">SchoolAnnuary - Protected</text></svg>');
+        }
+    </style>
+</head>
+<body>
+
+    <div class="security-overlay"></div>
+
+    <header>
+        <h1>SCHOOL ANNUARY</h1>
+    </header>
+
+    <div class="library" id="library-container"></div>
+
+    <div id="viewer">
+        <div class="close-ui" onclick="closeViewer()">×</div>
+        <div class="loader" id="loader"></div>
+        <div id="flipbook-container"></div>
+    </div>
+
+    <div id="toast">Link copiato negli appunti!</div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // ==========================================
+        // CONFIGURAZIONE LIBRI
+        // ==========================================
+        const bookList = [
+            { filename: 'annuario scolastico2025.pdf', name: 'Annuario 2025' },
+           
+        ];
+        
+        const PDF_FOLDER = './PDF/';
+
+        // --- 1. Inizializzazione ---
+        const libraryContainer = document.getElementById('library-container');
+        const shelf = document.createElement('div');
+        shelf.className = 'shelf-row';
+        libraryContainer.appendChild(shelf);
+
+        // Controllo Parametri URL (Deep Linking)
+        window.addEventListener('DOMContentLoaded', () => {
+            renderLibrary();
+            checkUrlForBook();
+        });
+
+        function checkUrlForBook() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookParam = urlParams.get('book'); // Cerca ?book=nomefile.pdf
+            
+            if (bookParam) {
+                // Verifica se il libro esiste nella lista per sicurezza
+                const validBook = bookList.find(b => b.filename === bookParam);
+                if (validBook) {
+                    loadBook(bookParam);
+                } else {
+                    console.log("Libro richiesto non trovato nell'indice.");
+                    // Opzionale: rimuovi il parametro URL sporco
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }
+        }
+
+        function renderLibrary() {
+            bookList.forEach(book => {
+                // Wrapper verticale
+                const wrapper = document.createElement('div');
+                wrapper.className = 'book-wrapper';
+
+                // Libro (Cover)
+                const item = document.createElement('div');
+                item.className = 'book-item';
+                item.onclick = () => loadBook(book.filename); // Click sulla cover apre
+
+                const canvas = document.createElement('canvas');
+                canvas.className = 'book-cover';
+                item.appendChild(canvas);
+                
+                // Titolo
+                const label = document.createElement('div');
+                label.className = 'book-title';
+                label.innerText = book.name;
+
+                // Tasto Condividi
+                const shareBtn = document.createElement('button');
+                shareBtn.className = 'share-btn';
+                shareBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                    Condividi`;
+                
+                shareBtn.onclick = (e) => {
+                    e.stopPropagation(); // Evita che il click apra anche il libro
+                    shareBookUrl(book.filename, book.name);
+                };
+
+                // Assemblaggio
+                wrapper.appendChild(item);
+                wrapper.appendChild(label);
+                wrapper.appendChild(shareBtn);
+                shelf.appendChild(wrapper);
+
+                renderThumbnail(book.filename, canvas);
+            });
+        }
+
+        async function renderThumbnail(filename, canvas) {
+            try {
+                const doc = await pdfjsLib.getDocument(PDF_FOLDER + filename).promise;
+                const page = await doc.getPage(1);
+                const viewport = page.getViewport({ scale: 0.5 });
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport }).promise;
+            } catch (err) {
+                console.error(`Errore anteprima ${filename}:`, err);
+            }
+        }
+
+        // --- Logica Condivisione ---
+        async function shareBookUrl(filename, bookName) {
+            // Costruisce l'URL completo: sito.com/?book=nomefile.pdf
+            const url = `${window.location.origin}${window.location.pathname}?book=${encodeURIComponent(filename)}`;
+            
+            // Usa l'API nativa di condivisione se disponibile (Mobile)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'SchoolAnnuary',
+                        text: `Guarda l'annuario: ${bookName}`,
+                        url: url
+                    });
+                } catch (err) {
+                    console.log('Condivisione annullata');
+                }
+            } else {
+                // Fallback Desktop: Copia negli appunti
+                try {
+                    await navigator.clipboard.writeText(url);
+                    showToast();
+                } catch (err) {
+                    alert('Copia questo link: ' + url);
+                }
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        // --- 2. Logica Lettore ---
+        let flipbookInstance = null;
+
+        async function loadBook(filename) {
+            const viewer = document.getElementById('viewer');
+            const container = document.getElementById('flipbook-container');
+            const loader = document.getElementById('loader');
+
+            viewer.style.display = 'flex';
+            loader.style.display = 'block';
+            container.innerHTML = ''; 
+
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+
+            try {
+                const doc = await pdfjsLib.getDocument(PDF_FOLDER + filename).promise;
+                const bookElem = document.createElement('div');
+                bookElem.className = 'flip-book'; 
+                container.appendChild(bookElem);
+
+                for (let i = 1; i <= doc.numPages; i++) {
+                    const page = await doc.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.2 });
+                    
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = 'page';
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    
+                    pageDiv.appendChild(canvas);
+                    bookElem.appendChild(pageDiv);
+                }
+
+                loader.style.display = 'none';
+                bookElem.style.display = 'block';
+
+                flipbookInstance = new St.PageFlip(bookElem, {
+                    width: 500, height: 700,
+                    size: 'stretch',
+                    minWidth: 300, maxWidth: 1000,
+                    minHeight: 400, maxHeight: 1400,
+                    maxShadowOpacity: 0.5,
+                    showCover: true,
+                    mobileScrollSupport: false 
+                });
+
+                flipbookInstance.loadFromHTML(document.querySelectorAll('.page'));
+
+            } catch (err) {
+                console.error(err);
+                alert("Errore nel caricamento.");
+                closeViewer();
+            }
+        }
+
+        function closeViewer() {
+            document.getElementById('viewer').style.display = 'none';
+            if (flipbookInstance) {
+                flipbookInstance.destroy();
+                flipbookInstance = null;
+            }
+            if (document.exitFullscreen) document.exitFullscreen();
+            
+            // Pulisce l'URL quando si chiude il viewer per tornare "home"
+            const cleanUrl = window.location.pathname;
+            window.history.pushState({}, document.title, cleanUrl);
+        }
+
+        // --- 3. Protezione ---
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey && ['p','s','u'].includes(e.key)) || e.key === 'PrintScreen') {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('blur', () => document.body.style.filter = 'blur(10px)');
+        window.addEventListener('focus', () => document.body.style.filter = 'none');
+
+    </script>
+</body>
+</html>
